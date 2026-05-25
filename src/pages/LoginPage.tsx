@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Form, Input, Button, Card, Typography, Alert, Space } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import type { ApiError } from '../types/api';
 
 export const LoginPage = () => {
   const { loginAction } = useAuth();
@@ -13,8 +14,8 @@ export const LoginPage = () => {
     setError('');
     try {
       await loginAction(values.email, values.password);
-    } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+    } catch (err) {
+      setError((err as ApiError).message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }

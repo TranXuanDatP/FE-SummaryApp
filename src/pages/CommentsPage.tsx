@@ -1,36 +1,41 @@
 import { Table, Button, Modal, Form, Input, Select, Space, message, Card, Typography, Empty, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CommentOutlined } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as commentApi from '../api/comment';
 import * as worklogApi from '../api/worklog';
 import { useAuth } from '../contexts/AuthContext';
+import type { WorkLogDto, CommentDto, ApiError } from '../types/api';
+
+interface WorkLogWithComments extends WorkLogDto {
+  comments?: CommentDto[];
+}
 
 export const CommentsPage = () => {
-  const [workLogs, setWorkLogs] = useState<any[]>([]);
+  const [workLogs, setWorkLogs] = useState<WorkLogWithComments[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<any>(null);
+  const [editItem, setEditItem] = useState<CommentDto & { workLogId: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
   const { user } = useAuth();
   const isManager = user?.role === 'manager';
 
-  const fetchWorkLogs = async (p = page) => {
+  const fetchWorkLogs = useCallback(async (p = page) => {
     setLoading(true);
     try {
-      const res: any = await worklogApi.getWorkLogs({ page: p, limit: 20 });
+      const res = await worklogApi.getWorkLogs({ page: p, limit: 20 });
       setWorkLogs(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch (err: any) {
-      message.error(err.message || 'Failed to load work logs');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to load work logs');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
-  useEffect(() => { fetchWorkLogs(); }, [page]);
+  useEffect(() => { fetchWorkLogs(); }, [fetchWorkLogs]);
 
   const openCreate = () => {
     setEditItem(null);
@@ -45,14 +50,14 @@ export const CommentsPage = () => {
     setModalOpen(true);
   };
 
-  const openEdit = (comment: any) => {
+  const openEdit = (comment: CommentDto & { workLogId: string }) => {
     setEditItem(comment);
     form.resetFields();
     form.setFieldsValue({ workLogId: comment.workLogId, content: comment.content });
     setModalOpen(true);
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: { workLogId: string; content: string }) => {
     setSubmitting(true);
     try {
       if (editItem) {
@@ -66,8 +71,8 @@ export const CommentsPage = () => {
       setEditItem(null);
       form.resetFields();
       fetchWorkLogs();
-    } catch (err: any) {
-      message.error(err.message || 'Failed to save comment');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to save comment');
     } finally {
       setSubmitting(false);
     }
@@ -78,8 +83,8 @@ export const CommentsPage = () => {
       await commentApi.deleteComment(commentId);
       message.success('Comment deleted');
       fetchWorkLogs();
-    } catch (err: any) {
-      message.error(err.message || 'Failed to delete comment');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to delete comment');
     }
   };
 
@@ -108,15 +113,15 @@ export const CommentsPage = () => {
     {
       title: 'Comments',
       width: 300,
-      render: (_: any, record: any) => {
-        const comments: any[] = record.comments ?? [];
+      render: (_: unknown, record: WorkLogWithComments) => {
+        const comments = record.comments ?? [];
         return (
           <div>
             {comments.length === 0 ? (
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>No comments</Typography.Text>
             ) : (
               <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                {comments.map((c: any) => (
+                {comments.map((c) => (
                   <Card key={c.id} size="small" style={{ background: '#fafafa', padding: '4px 8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ flex: 1 }}>
@@ -209,7 +214,7 @@ export const CommentsPage = () => {
                   (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
                 }
               >
-                {workLogs.map((wl: any) => (
+                {workLogs.map((wl) => (
                   <Select.Option key={wl.id} value={wl.id}>
                     {wl.executionDate?.substring(0, 10)} — {wl.employeeName}: {wl.content?.substring(0, 50)}
                   </Select.Option>

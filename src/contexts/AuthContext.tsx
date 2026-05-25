@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as authApi from '../api/auth';
 import { setLogoutFn } from '../api/client';
+import type { LoginResponse } from '../types/api';
 
 interface AuthUser {
   userId: string;
@@ -18,27 +19,34 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>(null!);
 
+function parseJwtPayload(token: string): { sub: string; email: string; role: string } {
+  return JSON.parse(atob(token.split('.')[1]));
+}
+
+/* eslint-disable react-refresh/only-export-components */
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const logoutAction = () => {
+  const logoutAction = useCallback(() => {
     const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) authApi.logout(refreshToken).catch(() => {});
+    if (refreshToken) void authApi.logout(refreshToken).catch(() => { /* ignored: session cleanup */ });
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setUser(null);
     navigate('/login');
-  };
+  }, [navigate]);
 
-  setLogoutFn(logoutAction);
+  useEffect(() => {
+    setLogoutFn(logoutAction);
+  }, [logoutAction]);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = parseJwtPayload(token);
         setUser({ userId: payload.sub, email: payload.email, role: payload.role });
       } catch {
         localStorage.removeItem('accessToken');
@@ -48,10 +56,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const loginAction = async (email: string, password: string) => {
-    const data: any = await authApi.login(email, password);
+    const data = (await authApi.login(email, password)) as unknown as LoginResponse;
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
-    const payload = JSON.parse(atob(data.accessToken.split('.')[1]));
+    const payload = parseJwtPayload(data.accessToken);
     setUser({ userId: payload.sub, email: payload.email, role: payload.role });
     navigate('/');
   };

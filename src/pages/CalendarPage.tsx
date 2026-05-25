@@ -1,4 +1,4 @@
-import { Calendar, Card, Modal, Form, Input, Select, message, Typography, Row, Col, Statistic, Tag, Space, Alert } from 'antd';
+import { Calendar, Card, Modal, Form, Input, Select, message, Typography, Row, Col, Statistic, Tag, Space } from 'antd';
 import { CheckCircleOutlined, WarningOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useState, useEffect, useCallback } from 'react';
 import type { Dayjs } from 'dayjs';
@@ -7,50 +7,50 @@ import * as worklogApi from '../api/worklog';
 import * as projectApi from '../api/project';
 import * as userApi from '../api/user';
 import { useAuth } from '../contexts/AuthContext';
+import type { CalendarDayDto, ProjectDto, UserDto, SummaryDto, ApiError } from '../types/api';
 
 export const CalendarPage = () => {
-  const [calendarData, setCalendarData] = useState<any[]>([]);
-  const [, setSummary] = useState<any>(null);
+  const [calendarData, setCalendarData] = useState<CalendarDayDto[]>([]);
+  const [, setSummary] = useState<SummaryDto | null>(null);
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
-  const [selectedDayInfo, setSelectedDayInfo] = useState<any>(null);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectDto[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
   const [selectedEmployee, setSelectedEmployee] = useState<string | undefined>();
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<UserDto[]>([]);
   const { user } = useAuth();
   const isManager = user?.role === 'manager';
 
   const fetchCalendar = useCallback(async (month: number, year: number) => {
     try {
       const empId = isManager ? selectedEmployee : undefined;
-      const [calRes, sumRes]: [any, any] = await Promise.all([
+      const [calRes, sumRes] = await Promise.all([
         worklogApi.getCalendar(month, year, empId),
         worklogApi.getSummary(month, year, empId),
       ]);
       setCalendarData(calRes ?? []);
       setSummary(sumRes ?? null);
-    } catch (err: any) {
-      message.error(err.message || 'Failed to load calendar');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to load calendar');
     }
   }, [isManager, selectedEmployee]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
-      const res: any = await projectApi.getProjects(1, 100);
+      const res = await projectApi.getProjects(1, 100);
       setProjects(res.data ?? []);
-    } catch {}
-  };
+    } catch { /* ignored */ }
+  }, []);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     if (!isManager) return;
     try {
-      const res: any = await userApi.getUsers(1, 100);
+      const res = await userApi.getUsers(1, 100);
       setEmployees(res.data ?? []);
-    } catch {}
-  };
+    } catch { /* ignored */ }
+  }, [isManager]);
 
   useEffect(() => {
     fetchCalendar(currentMonth.month() + 1, currentMonth.year());
@@ -59,20 +59,18 @@ export const CalendarPage = () => {
   useEffect(() => {
     fetchProjects();
     fetchEmployees();
-  }, []);
+  }, [fetchProjects, fetchEmployees]);
 
   const onPanelChange = (value: Dayjs) => {
     setCurrentMonth(value);
   };
 
   const onSelect = (value: Dayjs) => {
-    // Only allow creating work logs when viewing own calendar
     if (selectedEmployee) return;
     const dateStr = value.format('YYYY-MM-DD');
-    const dayInfo = calendarData.find((d: any) => d.date === dateStr);
+    const dayInfo = calendarData.find((d) => d.date === dateStr);
     if (dayInfo?.isBusinessDay && !dayInfo.hasWorkLog) {
       setSelectedDate(dateStr);
-      setSelectedDayInfo(dayInfo);
       form.resetFields();
       setModalOpen(true);
     }
@@ -80,7 +78,7 @@ export const CalendarPage = () => {
 
   const dateCellRender = (value: Dayjs) => {
     const dateStr = value.format('YYYY-MM-DD');
-    const dayInfo = calendarData.find((d: any) => d.date === dateStr);
+    const dayInfo = calendarData.find((d) => d.date === dateStr);
     if (!dayInfo || !dayInfo.isBusinessDay) return null;
 
     if (dayInfo.hasWorkLog) {
@@ -110,33 +108,29 @@ export const CalendarPage = () => {
     );
   };
 
-  const handleCreate = async (values: any) => {
+  const handleCreate = async (values: { content: string; projectId?: string }) => {
     setSubmitting(true);
     try {
-      const payload: any = {
-        content: values.content,
-        executionDate: selectedDate,
-      };
-      if (values.projectId) payload.projectId = values.projectId;
+      const payload = { content: values.content, executionDate: selectedDate, ...(values.projectId ? { projectId: values.projectId } : {}) };
       await worklogApi.createWorkLog(payload);
       message.success(`Work log created for ${selectedDate}`);
       setModalOpen(false);
       form.resetFields();
       fetchCalendar(currentMonth.month() + 1, currentMonth.year());
-    } catch (err: any) {
-      if (err.code === 'WORKLOG_DUPLICATE') {
+    } catch (err) {
+      if ((err as ApiError).code === 'WORKLOG_DUPLICATE') {
         message.error('A work log already exists for this date');
       } else {
-        message.error(err.message || 'Failed to create work log');
+        message.error((err as ApiError).message || 'Failed to create work log');
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const businessDays = calendarData.filter((d: any) => d.isBusinessDay);
-  const loggedDays = businessDays.filter((d: any) => d.hasWorkLog).length;
-  const missingDays = businessDays.filter((d: any) => !d.hasWorkLog && d.isEditable).length;
+  const businessDays = calendarData.filter((d) => d.isBusinessDay);
+  const loggedDays = businessDays.filter((d) => d.hasWorkLog).length;
+  const missingDays = businessDays.filter((d) => !d.hasWorkLog && d.isEditable).length;
 
   return (
     <div>
@@ -154,12 +148,11 @@ export const CalendarPage = () => {
               setSelectedEmployee(v);
               setCurrentMonth(dayjs(currentMonth));
             }}
-            options={employees.map((e: any) => ({ value: e.id, label: `${e.fullName} (${e.email})` }))}
+            options={employees.map((e) => ({ value: e.id, label: `${e.fullName} (${e.email})` }))}
           />
         )}
       </div>
 
-      {/* Summary Stats */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card size="small">
@@ -183,7 +176,6 @@ export const CalendarPage = () => {
         </Col>
       </Row>
 
-      {/* Legend */}
       <Space style={{ marginBottom: 16 }}>
         <Tag color="success"><CheckCircleOutlined /> Logged</Tag>
         <Tag color="warning"><WarningOutlined /> Missing {!selectedEmployee && '(click to add)'}</Tag>
@@ -210,9 +202,6 @@ export const CalendarPage = () => {
         onOk={() => form.submit()}
         okText="Create"
       >
-        {selectedDayInfo?.hasWorkLog && (
-          <Alert message="A work log already exists for this date." type="warning" showIcon style={{ marginBottom: 16 }} />
-        )}
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item name="content" label="What did you work on?" rules={[
             { required: true, message: 'Content is required' },
@@ -222,7 +211,7 @@ export const CalendarPage = () => {
           </Form.Item>
           <Form.Item name="projectId" label="Project">
             <Select allowClear placeholder="Select project (optional)">
-              {projects.map((p: any) => (
+              {projects.map((p) => (
                 <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>
               ))}
             </Select>

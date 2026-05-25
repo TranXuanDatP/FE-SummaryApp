@@ -3,12 +3,15 @@ import { DownloadOutlined, FileExcelOutlined, ReloadOutlined } from '@ant-design
 import { useState, useEffect, useCallback } from 'react';
 import dayjs from 'dayjs';
 import * as reportApi from '../api/report';
+import type { MonthlyReportRow } from '../api/report';
 import * as userApi from '../api/user';
+import type { UserDto } from '../types/api';
 import * as projectApi from '../api/project';
+import type { ProjectDto, ApiError } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
 
 export const ReportsPage = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<MonthlyReportRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -17,49 +20,45 @@ export const ReportsPage = () => {
   const [year, setYear] = useState(dayjs().year());
   const [filterEmployee, setFilterEmployee] = useState<string | undefined>();
   const [filterProject, setFilterProject] = useState<string | undefined>();
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<UserDto[]>([]);
+  const [projects, setProjects] = useState<ProjectDto[]>([]);
   const { user } = useAuth();
   const isManager = user?.role === 'manager';
 
   const fetch = useCallback(async (p = page) => {
     setLoading(true);
     try {
-      const params: any = { month, year, page: p, limit: 20 };
-      if (filterEmployee) params.employeeId = filterEmployee;
-      if (filterProject) params.projectId = filterProject;
-      const res: any = await reportApi.getMonthlyReport(params);
+      const params = { month, year, page: p, limit: 20, ...(filterEmployee ? { employeeId: filterEmployee } : {}), ...(filterProject ? { projectId: filterProject } : {}) };
+      const res = await reportApi.getMonthlyReport(params);
       setData(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch (err: any) {
-      message.error(err.message || 'Failed to load report');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to load report');
     } finally {
       setLoading(false);
     }
   }, [page, month, year, filterEmployee, filterProject]);
 
-  const fetchFilters = async () => {
+  const fetchFilters = useCallback(async () => {
     if (!isManager) return;
     try {
-      const [uRes, pRes]: [any, any] = await Promise.all([
+      const [uRes, pRes] = await Promise.all([
         userApi.getUsers(1, 100),
         projectApi.getProjects(1, 100),
       ]);
       setEmployees(uRes.data ?? []);
       setProjects(pRes.data ?? []);
-    } catch {}
-  };
+    } catch { /* ignored */ }
+  }, [isManager]);
 
   useEffect(() => { fetch(); }, [fetch]);
-  useEffect(() => { fetchFilters(); }, []);
+  useEffect(() => { fetchFilters(); }, [fetchFilters]);
 
   const handleExport = async () => {
     setExporting(true);
     try {
-      const params: any = { month, year };
-      if (filterEmployee) params.employeeId = filterEmployee;
-      if (filterProject) params.projectId = filterProject;
-      const blob: any = await reportApi.exportMonthlyReport(params);
+      const params = { month, year, ...(filterEmployee ? { employeeId: filterEmployee } : {}), ...(filterProject ? { projectId: filterProject } : {}) };
+      const blob = await reportApi.exportMonthlyReport(params);
       const url = window.URL.createObjectURL(new Blob([blob]));
       const a = document.createElement('a');
       a.href = url;
@@ -69,8 +68,8 @@ export const ReportsPage = () => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       message.success('Excel file downloaded');
-    } catch (err: any) {
-      message.error(err.message || 'Export failed');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Export failed');
     } finally {
       setExporting(false);
     }
@@ -101,7 +100,7 @@ export const ReportsPage = () => {
     {
       title: 'Status',
       width: 100,
-      render: (_: any, record: any) =>
+      render: (_: unknown, record: MonthlyReportRow) =>
         record.isEditable
           ? <Tag color="success">Editable</Tag>
           : <Tag color="default">Locked</Tag>,
@@ -110,10 +109,10 @@ export const ReportsPage = () => {
       title: 'Comments',
       dataIndex: 'comments',
       width: 200,
-      render: (comments: any[]) =>
+      render: (comments: MonthlyReportRow['comments']) =>
         comments?.length > 0 ? (
           <Space direction="vertical" size={2}>
-            {comments.map((c: any, i: number) => (
+            {comments.map((c, i) => (
               <Typography.Text key={i} style={{ fontSize: 12 }} type="secondary">
                 {c.managerName}: {c.content}
               </Typography.Text>
@@ -170,7 +169,7 @@ export const ReportsPage = () => {
               style={{ width: 220 }}
               value={filterEmployee}
               onChange={(v) => { setFilterEmployee(v); setPage(1); }}
-              options={employees.map((e: any) => ({ value: e.id, label: e.fullName }))}
+              options={employees.map((e) => ({ value: e.id, label: e.fullName }))}
             />
             <Select
               allowClear
@@ -178,7 +177,7 @@ export const ReportsPage = () => {
               style={{ width: 220 }}
               value={filterProject}
               onChange={(v) => { setFilterProject(v); setPage(1); }}
-              options={projects.map((p: any) => ({ value: p.id, label: p.name }))}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
             />
             {(filterEmployee || filterProject) && (
               <Button type="link" onClick={() => { setFilterEmployee(undefined); setFilterProject(undefined); setPage(1); }}>

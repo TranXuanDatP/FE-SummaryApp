@@ -1,47 +1,47 @@
 import { Table, Button, Modal, Form, Input, Select, message, Space, Card, Typography, Tag, Empty, Alert } from 'antd';
 import { PlusOutlined, EditOutlined, MergeCellsOutlined, ReloadOutlined } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as projectApi from '../api/project';
+import type { ProjectDto, ApiError } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
 
 export const ProjectsPage = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ProjectDto[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<any>(null);
+  const [editItem, setEditItem] = useState<ProjectDto | null>(null);
   const [searchQ, setSearchQ] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
 
-  // Merge modal state
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
-  const [mergeTarget, setMergeTarget] = useState<any>(null);
+  const [mergeTarget, setMergeTarget] = useState<ProjectDto | null>(null);
   const [mergeSubmitting, setMergeSubmitting] = useState(false);
   const [mergeForm] = Form.useForm();
 
   const { user } = useAuth();
   const isManager = user?.role === 'manager';
 
-  const fetch = async (p = page, q = searchQ) => {
+  const fetch = useCallback(async (p = page, q = searchQ) => {
     setLoading(true);
     try {
-      const res: any = q
+      const res = q
         ? await projectApi.searchProjects(q, p, 20)
         : await projectApi.getProjects(p, 20);
       setData(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch (err: any) {
-      message.error(err.message || 'Failed to load projects');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to load projects');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchQ]);
 
-  useEffect(() => { fetch(); }, [page]);
+  useEffect(() => { fetch(); }, [fetch]);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: { name: string; description?: string }) => {
     setSubmitting(true);
     try {
       if (editItem) {
@@ -55,11 +55,11 @@ export const ProjectsPage = () => {
       setEditItem(null);
       form.resetFields();
       fetch();
-    } catch (err: any) {
-      if (err.status === 409) {
+    } catch (err) {
+      if ((err as ApiError).status === 409) {
         form.setFields([{ name: 'name', errors: ['Project name already exists'] }]);
       } else {
-        message.error(err.message || 'Operation failed');
+        message.error((err as ApiError).message || 'Operation failed');
       }
     } finally {
       setSubmitting(false);
@@ -72,29 +72,29 @@ export const ProjectsPage = () => {
     setModalOpen(true);
   };
 
-  const openEdit = (record: any) => {
+  const openEdit = (record: ProjectDto) => {
     setEditItem(record);
     form.setFieldsValue({ name: record.name, description: record.description });
     setModalOpen(true);
   };
 
-  const openMerge = (record: any) => {
+  const openMerge = (record: ProjectDto) => {
     setMergeTarget(record);
     mergeForm.resetFields();
     setMergeModalOpen(true);
   };
 
-  const handleMerge = async (values: any) => {
+  const handleMerge = async (values: { sourceIds: string[] }) => {
     setMergeSubmitting(true);
     try {
-      await projectApi.mergeProjects(mergeTarget.id, values.sourceIds);
-      message.success(`Merged into "${mergeTarget.name}" successfully`);
+      await projectApi.mergeProjects(mergeTarget!.id, values.sourceIds);
+      message.success(`Merged into "${mergeTarget!.name}" successfully`);
       setMergeModalOpen(false);
       setMergeTarget(null);
       mergeForm.resetFields();
       fetch();
-    } catch (err: any) {
-      message.error(err.message || 'Merge failed');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Merge failed');
     } finally {
       setMergeSubmitting(false);
     }
@@ -110,7 +110,7 @@ export const ProjectsPage = () => {
     {
       title: 'Name',
       dataIndex: 'name',
-      render: (name: string, record: any) => (
+      render: (name: string, record: ProjectDto) => (
         <div>
           <div style={{ fontWeight: 500 }}>{name}</div>
           {record.description && (
@@ -140,7 +140,7 @@ export const ProjectsPage = () => {
     {
       title: 'Action',
       width: 200,
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: ProjectDto) => (
         <Space size={4}>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>Edit</Button>
           {isManager && record.status === 'active' && data.filter((p) => p.status === 'active' && p.id !== record.id).length > 0 && (
@@ -196,7 +196,6 @@ export const ProjectsPage = () => {
         />
       </Card>
 
-      {/* Create / Edit Modal */}
       <Modal
         title={editItem ? 'Edit Project' : 'Create New Project'}
         open={modalOpen}
@@ -220,7 +219,6 @@ export const ProjectsPage = () => {
         </Form>
       </Modal>
 
-      {/* Merge Modal */}
       <Modal
         title={`Merge into "${mergeTarget?.name ?? ''}"`}
         open={mergeModalOpen}

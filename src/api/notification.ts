@@ -1,16 +1,17 @@
 import client from './client';
+import type { PaginatedResponse, NotificationDto, NotificationPreferenceDto } from '../types/api';
 
 export const getNotifications = (page = 1, limit = 20) =>
-  client.get('/notifications', { params: { page, limit } });
+  client.get<never, PaginatedResponse<NotificationDto>>('/notifications', { params: { page, limit } });
 
 export const markAllRead = () =>
-  client.put('/notifications/read-all');
+  client.put<never, void>('/notifications/read-all');
 
 export const markRead = (id: string) =>
-  client.put(`/notifications/${id}/read`);
+  client.put<never, void>(`/notifications/${id}/read`);
 
 export const getPreferences = () =>
-  client.get('/notifications/preferences');
+  client.get<never, NotificationPreferenceDto[]>('/notifications/preferences');
 
 export const updatePreferences = (preferences: { type: string; channel: string; enabled: boolean }[]) =>
-  client.put('/notifications/preferences', { preferences });
+  client.put<never, void>('/notifications/preferences', { preferences });

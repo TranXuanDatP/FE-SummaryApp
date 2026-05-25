@@ -1,13 +1,17 @@
 import client from './client';
+import type { UserDto, PaginatedResponse } from '../types/api';
 
 export const getUsers = (page = 1, limit = 20) =>
-  client.get('/users', { params: { page, limit } });
+  client.get<never, PaginatedResponse<UserDto>>('/users', { params: { page, limit } });
 
 export const getUser = (id: string) =>
-  client.get(`/users/${id}`);
+  client.get<never, UserDto>(`/users/${id}`);
 
 export const createUser = (data: { email: string; password: string; fullName: string; role: string }) =>
-  client.post('/users', data);
+  client.post<never, UserDto>('/users', data);
 
 export const deactivateUser = (id: string) =>
-  client.patch(`/users/${id}/deactivate`);
+  client.patch<never, UserDto>(`/users/${id}/deactivate`);
+
+export const deleteUser = (id: string) =>
+  client.delete<never, { deleted: boolean; id: string }>(`/users/${id}`);

@@ -1,14 +1,22 @@
 import axios from 'axios';
+import type { ApiError } from '../types/api';
 
 const client = axios.create();
 
 let logoutFn: (() => void) | null = null;
-export const setLogoutFn = (fn: () => void) => { logoutFn = fn; };
+export const setLogoutFn = (fn: () => void) => {
+  logoutFn = fn;
+};
+
+interface QueueItem {
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+}
 
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: any) => void }> = [];
+let failedQueue: QueueItem[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error);
     else prom.resolve(token!);
@@ -26,7 +34,7 @@ client.interceptors.request.use((config) => {
 
 client.interceptors.response.use(
   (res) => res.data?.data ?? res.data,
-  async (error) => {
+  async (error: { config: { _retry?: boolean; headers: Record<string, string> }; response?: { status: number; data?: { error?: { message?: string; code?: string }; message?: string; code?: string } }; message: string }) => {
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -70,7 +78,7 @@ client.interceptors.response.use(
     const err = error.response?.data?.error;
     const msg = err?.message || error.response?.data?.message || error.message;
     const code = err?.code || error.response?.data?.code;
-    return Promise.reject({ message: msg, code, status: error.response?.status });
+    return Promise.reject<ApiError>({ message: msg, code, status: error.response?.status });
   },
 );
 

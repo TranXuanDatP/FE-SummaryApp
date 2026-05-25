@@ -5,20 +5,20 @@ import dayjs from 'dayjs';
 import * as worklogApi from '../api/worklog';
 import * as projectApi from '../api/project';
 import { useAuth } from '../contexts/AuthContext';
+import type { WorkLogDto, ProjectDto, WorkLogDefaultsDto, ApiError } from '../types/api';
 
 export const WorkLogsPage = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<WorkLogDto[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<any>(null);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [editItem, setEditItem] = useState<WorkLogDto | null>(null);
+  const [projects, setProjects] = useState<ProjectDto[]>([]);
   const [unlockModal, setUnlockModal] = useState<string | null>(null);
   const [unlockSubmitting, setUnlockSubmitting] = useState(false);
 
-  // Filters
   const [filterProject, setFilterProject] = useState<string | undefined>();
   const [filterDate, setFilterDate] = useState<string | undefined>();
   const [showFilters, setShowFilters] = useState(false);
@@ -31,57 +31,53 @@ export const WorkLogsPage = () => {
   const fetch = useCallback(async (p = page) => {
     setLoading(true);
     try {
-      const params: any = { page: p, limit: 20 };
-      if (filterProject) params.projectId = filterProject;
-      if (filterDate) params.executionDate = filterDate;
-      const res: any = await worklogApi.getWorkLogs(params);
+      const params = { page: p, limit: 20, ...(filterProject ? { projectId: filterProject } : {}), ...(filterDate ? { executionDate: filterDate } : {}) };
+      const res = await worklogApi.getWorkLogs(params);
       setData(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch (err: any) {
-      message.error(err.message || 'Failed to load work logs');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to load work logs');
     } finally {
       setLoading(false);
     }
   }, [page, filterProject, filterDate]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
-      const res: any = await projectApi.getProjects(1, 100);
+      const res = await projectApi.getProjects(1, 100);
       setProjects(res.data ?? []);
-    } catch {}
-  };
+    } catch { /* ignored */ }
+  }, []);
 
-  useEffect(() => { fetch(); fetchProjects(); }, [fetch]);
+  useEffect(() => { fetch(); fetchProjects(); }, [fetch, fetchProjects]);
 
   const openCreate = async () => {
     setEditItem(null);
     form.resetFields();
     try {
-      const d: any = await worklogApi.getDefaults();
+      const d = await worklogApi.getDefaults() as WorkLogDefaultsDto;
       form.setFieldsValue({
         projectId: d.suggestedProjectId,
         executionDate: dayjs(d.todayDate),
       });
-    } catch {}
+    } catch { /* ignored */ }
     setModalOpen(true);
   };
 
-  const openEdit = (record: any) => {
+  const openEdit = (record: WorkLogDto) => {
     setEditItem(record);
     form.setFieldsValue({ content: record.content });
     setModalOpen(true);
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: { content: string; projectId?: string; executionDate?: dayjs.Dayjs }) => {
     setSubmitting(true);
     try {
       if (editItem) {
         await worklogApi.updateWorkLog(editItem.id, { content: values.content });
         message.success('Work log updated');
       } else {
-        const payload: any = { content: values.content };
-        if (values.projectId) payload.projectId = values.projectId;
-        if (values.executionDate) payload.executionDate = values.executionDate.format('YYYY-MM-DD');
+        const payload = { content: values.content, ...(values.projectId ? { projectId: values.projectId } : {}), ...(values.executionDate ? { executionDate: values.executionDate.format('YYYY-MM-DD') } : {}) };
         await worklogApi.createWorkLog(payload);
         message.success('Work log created');
       }
@@ -89,15 +85,16 @@ export const WorkLogsPage = () => {
       setEditItem(null);
       form.resetFields();
       fetch();
-    } catch (err: any) {
-      if (err.code === 'WORKLOG_DUPLICATE') {
+    } catch (err) {
+      const code = (err as ApiError).code;
+      if (code === 'WORKLOG_DUPLICATE') {
         message.error('A work log already exists for this employee/project/date');
-      } else if (err.code === 'WORKLOG_FUTURE_DATE') {
+      } else if (code === 'WORKLOG_FUTURE_DATE') {
         form.setFields([{ name: 'executionDate', errors: ['Cannot create work log for future dates'] }]);
-      } else if (err.code === 'WORKLOG_LOCKED') {
+      } else if (code === 'WORKLOG_LOCKED') {
         message.error('This work log is locked and cannot be edited');
       } else {
-        message.error(err.message || 'Operation failed');
+        message.error((err as ApiError).message || 'Operation failed');
       }
     } finally {
       setSubmitting(false);
@@ -109,8 +106,8 @@ export const WorkLogsPage = () => {
       await worklogApi.deleteWorkLog(id);
       message.success('Work log deleted');
       fetch();
-    } catch (err: any) {
-      message.error(err.message || 'Failed to delete');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to delete');
     }
   };
 
@@ -122,8 +119,8 @@ export const WorkLogsPage = () => {
       setUnlockModal(null);
       unlockForm.resetFields();
       fetch();
-    } catch (err: any) {
-      message.error(err.message || 'Failed to unlock');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to unlock');
     } finally {
       setUnlockSubmitting(false);
     }
@@ -163,7 +160,7 @@ export const WorkLogsPage = () => {
     {
       title: 'Status',
       width: 120,
-      render: (_: any, record: any) => {
+      render: (_: unknown, record: WorkLogDto) => {
         if (record.isUnlocked) return <Tag color="orange">Unlocked</Tag>;
         if (record.isEditable) return <Tag color="success">Editable</Tag>;
         return <Tag color="error">Locked</Tag>;
@@ -172,7 +169,7 @@ export const WorkLogsPage = () => {
     {
       title: 'Actions',
       width: 200,
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: WorkLogDto) => (
         <Space size={4}>
           {record.isEditable && (
             <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>Edit</Button>
@@ -223,7 +220,7 @@ export const WorkLogsPage = () => {
               style={{ width: 200 }}
               value={filterProject}
               onChange={(v) => { setFilterProject(v); setPage(1); }}
-              options={projects.map((p: any) => ({ value: p.id, label: p.name }))}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
             />
             <DatePicker
               placeholder="Filter by date"
@@ -277,7 +274,7 @@ export const WorkLogsPage = () => {
               <Col span={12}>
                 <Form.Item name="projectId" label="Project">
                   <Select allowClear placeholder="Select project">
-                    {projects.map((p: any) => (
+                    {projects.map((p) => (
                       <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>
                     ))}
                   </Select>
@@ -304,7 +301,7 @@ export const WorkLogsPage = () => {
         <Typography.Paragraph type="secondary">
           Unlocking allows the employee to edit this work log again. Please provide a reason.
         </Typography.Paragraph>
-        <Form form={unlockForm} layout="vertical" onFinish={(v) => handleUnlock(unlockModal!, v.reason)}>
+        <Form form={unlockForm} layout="vertical" onFinish={(v: { reason: string }) => handleUnlock(unlockModal!, v.reason)}>
           <Form.Item name="reason" label="Reason" rules={[
             { required: true, message: 'Reason is required' },
             { max: 1000, message: 'Reason cannot exceed 1000 characters' },

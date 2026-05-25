@@ -1,10 +1,11 @@
 import { Table, Button, Modal, Form, Input, Select, Tag, message, Popconfirm, Card, Typography, Empty, Alert } from 'antd';
 import { PlusOutlined, StopOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as userApi from '../api/user';
+import type { UserDto, ApiError } from '../types/api';
 
 export const UsersPage = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<UserDto[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -12,22 +13,22 @@ export const UsersPage = () => {
   const [creating, setCreating] = useState(false);
   const [form] = Form.useForm();
 
-  const fetch = async (p = page) => {
+  const fetch = useCallback(async (p = page) => {
     setLoading(true);
     try {
-      const res: any = await userApi.getUsers(p, 20);
+      const res = await userApi.getUsers(p, 20);
       setData(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch (err: any) {
-      message.error(err.message || 'Failed to load users');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to load users');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
-  useEffect(() => { fetch(); }, [page]);
+  useEffect(() => { fetch(); }, [fetch]);
 
-  const handleCreate = async (values: any) => {
+  const handleCreate = async (values: { email: string; password: string; fullName: string; role: string }) => {
     setCreating(true);
     try {
       await userApi.createUser(values);
@@ -35,11 +36,11 @@ export const UsersPage = () => {
       setModalOpen(false);
       form.resetFields();
       fetch();
-    } catch (err: any) {
-      if (err.status === 409) {
+    } catch (err) {
+      if ((err as ApiError).status === 409) {
         form.setFields([{ name: 'email', errors: ['Email already exists'] }]);
       } else {
-        message.error(err.message || 'Failed to create user');
+        message.error((err as ApiError).message || 'Failed to create user');
       }
     } finally {
       setCreating(false);
@@ -51,8 +52,8 @@ export const UsersPage = () => {
       await userApi.deactivateUser(id);
       message.success('User deactivated');
       fetch();
-    } catch (err: any) {
-      message.error(err.message || 'Failed to deactivate user');
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to deactivate user');
     }
   };
 
@@ -60,7 +61,7 @@ export const UsersPage = () => {
     {
       title: 'User',
       key: 'user',
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: UserDto) => (
         <div>
           <div style={{ fontWeight: 500 }}>{record.fullName}</div>
           <div style={{ fontSize: 12, color: '#999' }}>{record.email}</div>
@@ -75,7 +76,7 @@ export const UsersPage = () => {
         { text: 'Manager', value: 'manager' },
         { text: 'Employee', value: 'employee' },
       ],
-      onFilter: (value: any, record: any) => record.role === value,
+      onFilter: (value: unknown, record: UserDto) => record.role === value,
       render: (r: string) => (
         <Tag color={r === 'manager' ? 'blue' : 'green'} icon={<UserOutlined />}>
           {r}
@@ -98,7 +99,7 @@ export const UsersPage = () => {
       title: 'Action',
       width: 120,
       align: 'center' as const,
-      render: (_: any, record: any) =>
+      render: (_: unknown, record: UserDto) =>
         record.isActive ? (
           <Popconfirm
             title="Deactivate this user?"
