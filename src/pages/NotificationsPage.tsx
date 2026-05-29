@@ -37,7 +37,7 @@ export const NotificationsPage = () => {
   const handleMarkRead = async (id: string) => {
     try {
       await notifApi.markRead(id);
-      message.success('Marked as read');
+      message.success('Đã đánh dấu đã đọc');
       fetchNotifications();
     } catch (err) {
       message.error((err as ApiError).message || 'Failed');
@@ -47,7 +47,7 @@ export const NotificationsPage = () => {
   const handleMarkAllRead = async () => {
     try {
       await notifApi.markAllRead();
-      message.success('All notifications marked as read');
+      message.success('Đã đánh dấu đã đọc tất cả');
       fetchNotifications();
     } catch (err) {
       message.error((err as ApiError).message || 'Failed');
@@ -57,7 +57,7 @@ export const NotificationsPage = () => {
   const handleTogglePref = async (type: string, channel: string, enabled: boolean) => {
     try {
       await notifApi.updatePreferences([{ type, channel, enabled }]);
-      message.success('Preference updated');
+      message.success('Đã cập nhật cài đặt');
       fetchPrefs();
     } catch (err) {
       message.error((err as ApiError).message || 'Failed to update');
@@ -68,7 +68,7 @@ export const NotificationsPage = () => {
 
   const columns = [
     {
-      title: 'Status',
+      title: 'Trạng thái',
       dataIndex: 'isRead',
       width: 70,
       render: (v: boolean) => v
@@ -76,13 +76,13 @@ export const NotificationsPage = () => {
         : <Badge dot><Tag color="blue">New</Tag></Badge>,
     },
     {
-      title: 'Type',
+      title: 'Loại',
       dataIndex: 'type',
       width: 140,
       render: (t: string) => <Tag>{t}</Tag>,
     },
     {
-      title: 'Title',
+      title: 'Tiêu đề',
       dataIndex: 'title',
       render: (title: string, record: NotificationDto) => (
         <div>
@@ -92,13 +92,13 @@ export const NotificationsPage = () => {
       ),
     },
     {
-      title: 'Time',
+      title: 'Thời gian',
       dataIndex: 'createdAt',
       width: 150,
       render: (d: string) => new Date(d).toLocaleString(),
     },
     {
-      title: 'Action',
+      title: 'Thao tác',
       width: 100,
       render: (_: unknown, record: NotificationDto) =>
         !record.isRead ? (
@@ -141,7 +141,7 @@ export const NotificationsPage = () => {
                 columns={columns}
                 dataSource={data}
                 loading={loading}
-                locale={{ emptyText: <Empty description="No notifications" /> }}
+                locale={{ emptyText: <Empty description="Không có thông báo" /> }}
                 pagination={{
                   current: page,
                   total,
@@ -154,7 +154,7 @@ export const NotificationsPage = () => {
           },
           {
             key: 'prefs',
-            label: <Space><SettingOutlined /> Preferences</Space>,
+            label: <Space><SettingOutlined /> Cài đặt</Space>,
             children: (
               <div>
                 <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
@@ -176,7 +176,7 @@ export const NotificationsPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <Empty description="No notification preferences configured" />
+                  <Empty description="Chưa có cài đặt thông báo" />
                 )}
               </div>
             ),

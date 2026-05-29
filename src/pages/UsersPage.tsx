@@ -1,8 +1,10 @@
-import { Table, Button, Modal, Form, Input, Select, Tag, message, Popconfirm, Card, Typography, Empty, Alert } from 'antd';
-import { PlusOutlined, StopOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Tag, message, Popconfirm, Card, Typography, Empty, Alert, Space } from 'antd';
+import { PlusOutlined, StopOutlined, DeleteOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
 import { useState, useEffect, useCallback } from 'react';
 import * as userApi from '../api/user';
 import type { UserDto, ApiError } from '../types/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useConfirmDirtyClose } from '../hooks/useConfirmDirtyClose';
 
 export const UsersPage = () => {
   const [data, setData] = useState<UserDto[]>([]);
@@ -12,6 +14,9 @@ export const UsersPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form] = Form.useForm();
+  const { user: currentUser } = useAuth();
+  const isManager = currentUser?.role === 'manager';
+  const confirmDirtyClose = useConfirmDirtyClose();
 
   const fetch = useCallback(async (p = page) => {
     setLoading(true);
@@ -57,9 +62,19 @@ export const UsersPage = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      await userApi.deleteUser(id);
+      message.success('User deleted');
+      fetch();
+    } catch (err) {
+      message.error((err as ApiError).message || 'Failed to delete user');
+    }
+  };
+
   const columns = [
     {
-      title: 'User',
+      title: 'Người dùng',
       key: 'user',
       render: (_: unknown, record: UserDto) => (
         <div>
@@ -69,7 +84,7 @@ export const UsersPage = () => {
       ),
     },
     {
-      title: 'Role',
+      title: 'Vai trò',
       dataIndex: 'role',
       width: 120,
       filters: [
@@ -84,35 +99,49 @@ export const UsersPage = () => {
       ),
     },
     {
-      title: 'Status',
+      title: 'Trạng thái',
       dataIndex: 'isActive',
       width: 100,
       render: (v: boolean) => <Tag color={v ? 'success' : 'error'}>{v ? 'Active' : 'Inactive'}</Tag>,
     },
     {
-      title: 'Version',
+      title: 'Phiên bản',
       dataIndex: 'version',
       width: 80,
       align: 'center' as const,
     },
     {
-      title: 'Action',
-      width: 120,
+      title: 'Thao tác',
+      width: 180,
       align: 'center' as const,
-      render: (_: unknown, record: UserDto) =>
-        record.isActive ? (
-          <Popconfirm
-            title="Deactivate this user?"
-            description="The user will not be able to login."
-            onConfirm={() => handleDeactivate(record.id)}
-            okText="Yes, deactivate"
-            cancelText="Cancel"
-          >
-            <Button size="small" danger icon={<StopOutlined />}>Deactivate</Button>
-          </Popconfirm>
-        ) : (
-          <Tag color="default">—</Tag>
-        ),
+      render: (_: unknown, record: UserDto) => (
+        <Space size={4}>
+          {record.isActive && (
+            <Popconfirm
+              title="Deactivate this user?"
+              description="The user will not be able to login."
+              onConfirm={() => handleDeactivate(record.id)}
+              okText="Yes, deactivate"
+              cancelText="Cancel"
+            >
+              <Button size="small" danger icon={<StopOutlined />}>Deactivate</Button>
+            </Popconfirm>
+          )}
+          {isManager && record.id !== currentUser?.userId && (
+            <Popconfirm
+              title="Delete this user permanently?"
+              description="This action cannot be undone."
+              onConfirm={() => handleDelete(record.id)}
+              okText="Xóa"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true }}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />}>Delete</Button>
+            </Popconfirm>
+          )}
+          {!record.isActive && !isManager && <Tag color="default">—</Tag>}
+        </Space>
+      ),
     },
   ];
 
@@ -152,10 +181,10 @@ export const UsersPage = () => {
       <Modal
         title="Create New User"
         open={modalOpen}
-        onCancel={() => { setModalOpen(false); form.resetFields(); }}
+        onCancel={() => confirmDirtyClose(form, () => { setModalOpen(false); form.resetFields(); })}
         confirmLoading={creating}
         onOk={() => form.submit()}
-        okText="Create"
+        okText="Tạo"
       >
         <Alert
           message="The new user will be able to login immediately."
@@ -186,8 +215,8 @@ export const UsersPage = () => {
           </Form.Item>
           <Form.Item name="role" label="Role" rules={[{ required: true, message: 'Role is required' }]}>
             <Select placeholder="Select role" options={[
-              { value: 'employee', label: 'Employee' },
-              { value: 'manager', label: 'Manager' },
+              { value: 'employee', label: 'Nhân viên' },
+              { value: 'manager', label: 'Quản lý' },
             ]} />
           </Form.Item>
         </Form>

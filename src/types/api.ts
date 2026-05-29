@@ -26,12 +26,29 @@ export interface ProjectDto {
   updatedAt: string;
 }
 
+export interface SprintDto {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  status: 'planning' | 'in_progress' | 'completed';
+  startDate: string | null;
+  endDate: string | null;
+  sortOrder: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WorkLogDto {
   id: string;
   projectId: string;
   employeeId: string;
+  sprintId: string | null;
   executionDate: string;
   content: string;
+  workType: string | null;
+  status: 'in_progress' | 'done';
   isUnlocked: boolean;
   unlockedBy: string | null;
   unlockedAt: string | null;
@@ -41,8 +58,10 @@ export interface WorkLogDto {
   editWindowClosesAt: string;
   projectName: string;
   employeeName: string;
+  sprintName: string | null;
   createdAt: string;
   updatedAt: string;
+  comments?: CommentDto[];
 }
 
 export interface WorkLogDefaultsDto {
@@ -101,4 +120,14 @@ export interface ApiError {
   message: string;
   code?: string;
   status?: number;
+}
+
+export interface EmployeeListItemDto {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  completionRate: number;
+  loggedDays: number;
+  totalBusinessDays: number;
 }

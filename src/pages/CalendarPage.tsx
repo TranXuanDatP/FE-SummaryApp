@@ -141,7 +141,7 @@ export const CalendarPage = () => {
         {isManager && (
           <Select
             allowClear
-            placeholder="View my calendar"
+            placeholder="Xem lịch của tôi"
             style={{ width: 240 }}
             value={selectedEmployee}
             onChange={(v) => {
@@ -156,22 +156,22 @@ export const CalendarPage = () => {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="Business Days" value={businessDays.length} />
+            <Statistic title="Ngày làm việc" value={businessDays.length} />
           </Card>
         </Col>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="Logged" value={loggedDays} valueStyle={{ color: '#52c41a' }} prefix={<CheckCircleOutlined />} />
+            <Statistic title="Đã ghi" value={loggedDays} valueStyle={{ color: '#52c41a' }} prefix={<CheckCircleOutlined />} />
           </Card>
         </Col>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="Missing (Editable)" value={missingDays} valueStyle={{ color: missingDays > 0 ? '#faad14' : undefined }} prefix={<WarningOutlined />} />
+            <Statistic title="Chưa ghi (Còn sửa được)" value={missingDays} valueStyle={{ color: missingDays > 0 ? '#faad14' : undefined }} prefix={<WarningOutlined />} />
           </Card>
         </Col>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="Completion" value={Math.round((loggedDays / (businessDays.length || 1)) * 100)} suffix="%" />
+            <Statistic title="Hoàn thành" value={Math.round((loggedDays / (businessDays.length || 1)) * 100)} suffix="%" />
           </Card>
         </Col>
       </Row>
@@ -200,17 +200,17 @@ export const CalendarPage = () => {
         confirmLoading={submitting}
         onCancel={() => setModalOpen(false)}
         onOk={() => form.submit()}
-        okText="Create"
+        okText="Tạo"
       >
         <Form form={form} layout="vertical" onFinish={handleCreate}>
-          <Form.Item name="content" label="What did you work on?" rules={[
+          <Form.Item name="content" label="Bạn đã làm gì?" rules={[
             { required: true, message: 'Content is required' },
             { max: 5000, message: 'Max 5000 characters' },
           ]}>
-            <Input.TextArea rows={4} placeholder="Describe your work..." showCount maxLength={5000} />
+            <Input.TextArea rows={4} placeholder="Mô tả công việc..." showCount maxLength={5000} />
           </Form.Item>
-          <Form.Item name="projectId" label="Project">
-            <Select allowClear placeholder="Select project (optional)">
+          <Form.Item name="projectId" label="Dự án">
+            <Select allowClear placeholder="Chọn dự án (tùy chọn)">
               {projects.map((p) => (
                 <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>
               ))}

@@ -5,13 +5,10 @@ import * as commentApi from '../api/comment';
 import * as worklogApi from '../api/worklog';
 import { useAuth } from '../contexts/AuthContext';
 import type { WorkLogDto, CommentDto, ApiError } from '../types/api';
-
-interface WorkLogWithComments extends WorkLogDto {
-  comments?: CommentDto[];
-}
+import { useConfirmDirtyClose } from '../hooks/useConfirmDirtyClose';
 
 export const CommentsPage = () => {
-  const [workLogs, setWorkLogs] = useState<WorkLogWithComments[]>([]);
+  const [workLogs, setWorkLogs] = useState<WorkLogDto[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -21,11 +18,12 @@ export const CommentsPage = () => {
   const [form] = Form.useForm();
   const { user } = useAuth();
   const isManager = user?.role === 'manager';
+  const confirmDirtyClose = useConfirmDirtyClose();
 
   const fetchWorkLogs = useCallback(async (p = page) => {
     setLoading(true);
     try {
-      const res = await worklogApi.getWorkLogs({ page: p, limit: 20 });
+      const res = await worklogApi.getWorkLogs({ page: p, limit: 20, ...(isManager ? { all: true } : {}) });
       setWorkLogs(res.data ?? []);
       setTotal(res.total ?? 0);
     } catch (err) {
@@ -65,7 +63,7 @@ export const CommentsPage = () => {
         message.success('Comment updated');
       } else {
         await commentApi.createComment(values.workLogId, values.content);
-        message.success('Comment added');
+        message.success('Đã thêm bình luận');
       }
       setModalOpen(false);
       setEditItem(null);
@@ -81,7 +79,7 @@ export const CommentsPage = () => {
   const handleDelete = async (commentId: string) => {
     try {
       await commentApi.deleteComment(commentId);
-      message.success('Comment deleted');
+      message.success('Đã xóa bình luận');
       fetchWorkLogs();
     } catch (err) {
       message.error((err as ApiError).message || 'Failed to delete comment');
@@ -90,30 +88,30 @@ export const CommentsPage = () => {
 
   const columns = [
     {
-      title: 'Date',
+      title: 'Ngày',
       dataIndex: 'executionDate',
       width: 110,
       render: (d: string) => d?.substring(0, 10),
     },
     {
-      title: 'Employee',
+      title: 'Nhân viên',
       dataIndex: 'employeeName',
       width: 140,
     },
     {
-      title: 'Work Content',
+      title: 'Nội dung CV',
       dataIndex: 'content',
       ellipsis: true,
     },
     {
-      title: 'Project',
+      title: 'Dự án',
       dataIndex: 'projectName',
       width: 130,
     },
     {
-      title: 'Comments',
+      title: 'Bình luận',
       width: 300,
-      render: (_: unknown, record: WorkLogWithComments) => {
+      render: (_: unknown, record: WorkLogDto) => {
         const comments = record.comments ?? [];
         return (
           <div>
@@ -131,7 +129,7 @@ export const CommentsPage = () => {
                       {isManager && c.managerId === user?.userId && (
                         <Space size={4}>
                           <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit({ ...c, workLogId: record.id })} />
-                          <Popconfirm title="Delete this comment?" onConfirm={() => handleDelete(c.id)}>
+                          <Popconfirm title="Xóa bình luận này?" onConfirm={() => handleDelete(c.id)}>
                             <Button type="text" size="small" danger icon={<DeleteOutlined />} />
                           </Popconfirm>
                         </Space>
@@ -184,7 +182,7 @@ export const CommentsPage = () => {
           columns={columns}
           dataSource={workLogs}
           loading={loading}
-          locale={{ emptyText: <Empty description="No work logs found" /> }}
+          locale={{ emptyText: <Empty description="Chưa có báo cáo CV found" /> }}
           pagination={{
             current: page,
             total,
@@ -199,15 +197,15 @@ export const CommentsPage = () => {
         title={editItem ? 'Edit Comment' : 'Add Comment'}
         open={modalOpen}
         confirmLoading={submitting}
-        onCancel={() => { setModalOpen(false); setEditItem(null); form.resetFields(); }}
+        onCancel={() => confirmDirtyClose(form, () => { setModalOpen(false); setEditItem(null); form.resetFields(); })}
         onOk={() => form.submit()}
         okText={editItem ? 'Update' : 'Add'}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           {!editItem && (
-            <Form.Item name="workLogId" label="Work Log" rules={[{ required: true, message: 'Select a work log' }]}>
+            <Form.Item name="workLogId" label="Báo cáo CV" rules={[{ required: true, message: 'Select a work log' }]}>
               <Select
-                placeholder="Select work log"
+                placeholder="Chọn báo cáo CV"
                 showSearch
                 optionFilterProp="children"
                 filterOption={(input, option) =>
@@ -222,11 +220,11 @@ export const CommentsPage = () => {
               </Select>
             </Form.Item>
           )}
-          <Form.Item name="content" label="Comment" rules={[
+          <Form.Item name="content" label="Bình luận" rules={[
             { required: true, message: 'Comment is required' },
             { max: 2000, message: 'Max 2000 characters' },
           ]}>
-            <Input.TextArea rows={4} placeholder="Write your feedback..." showCount maxLength={2000} />
+            <Input.TextArea rows={4} placeholder="Viết nhận xét..." showCount maxLength={2000} />
           </Form.Item>
         </Form>
       </Modal>

@@ -1,13 +1,15 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ConfigProvider, Spin } from 'antd';
+import { ConfigProvider, Spin, theme } from 'antd';
 import { lazy, Suspense } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AppLayout } from './components/AppLayout';
 import { PrivateRoute } from './components/PrivateRoute';
 import { LoginPage } from './pages/LoginPage';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })));
+const TeamPage = lazy(() => import('./pages/TeamPage').then((m) => ({ default: m.TeamPage })));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage })));
 const WorkLogsPage = lazy(() => import('./pages/WorkLogsPage').then((m) => ({ default: m.WorkLogsPage })));
 const CalendarPage = lazy(() => import('./pages/CalendarPage').then((m) => ({ default: m.CalendarPage })));
@@ -21,9 +23,13 @@ const PageLoader = () => (
   </div>
 );
 
-function App() {
+function ThemedApp() {
+  const { isDark } = useTheme();
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: '#1677ff' } }}>
+    <ConfigProvider theme={{
+      token: { colorPrimary: '#1677ff' },
+      algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+    }}>
       <BrowserRouter>
         <AuthProvider>
           <Routes>
@@ -31,6 +37,8 @@ function App() {
             <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
               <Route index element={<Suspense fallback={<PageLoader />}><DashboardPage /></Suspense>} />
               <Route path="users" element={<Suspense fallback={<PageLoader />}><UsersPage /></Suspense>} />
+              <Route path="team" element={<Suspense fallback={<PageLoader />}><TeamPage /></Suspense>} />
+              <Route path="team/:employeeId" element={<Suspense fallback={<PageLoader />}><TeamPage /></Suspense>} />
               <Route path="projects" element={<Suspense fallback={<PageLoader />}><ProjectsPage /></Suspense>} />
               <Route path="work-logs" element={<Suspense fallback={<PageLoader />}><WorkLogsPage /></Suspense>} />
               <Route path="calendar" element={<Suspense fallback={<PageLoader />}><CalendarPage /></Suspense>} />
@@ -42,6 +50,14 @@ function App() {
         </AuthProvider>
       </BrowserRouter>
     </ConfigProvider>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <ThemedApp />
+    </ThemeProvider>
   );
 }
 

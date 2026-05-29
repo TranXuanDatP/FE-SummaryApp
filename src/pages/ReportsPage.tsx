@@ -33,7 +33,7 @@ export const ReportsPage = () => {
       setData(res.data ?? []);
       setTotal(res.total ?? 0);
     } catch (err) {
-      message.error((err as ApiError).message || 'Failed to load report');
+      message.error((err as ApiError).message || 'Không thể tải báo cáo');
     } finally {
       setLoading(false);
     }
@@ -67,9 +67,9 @@ export const ReportsPage = () => {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      message.success('Excel file downloaded');
+      message.success('Đã tải file Excel');
     } catch (err) {
-      message.error((err as ApiError).message || 'Export failed');
+      message.error((err as ApiError).message || 'Xuất thất bại');
     } finally {
       setExporting(false);
     }
@@ -77,28 +77,28 @@ export const ReportsPage = () => {
 
   const columns = [
     {
-      title: 'Date',
+      title: 'Ngày',
       dataIndex: 'date',
       width: 110,
       render: (d: string) => dayjs(d).format('DD/MM/YYYY'),
     },
     {
-      title: 'Employee',
+      title: 'Nhân viên',
       dataIndex: 'employeeName',
       width: 150,
     },
     {
-      title: 'Project',
+      title: 'Dự án',
       dataIndex: 'projectName',
       width: 150,
     },
     {
-      title: 'Content',
+      title: 'Nội dung',
       dataIndex: 'content',
       ellipsis: true,
     },
     {
-      title: 'Status',
+      title: 'Trạng thái',
       width: 100,
       render: (_: unknown, record: MonthlyReportRow) =>
         record.isEditable
@@ -106,7 +106,7 @@ export const ReportsPage = () => {
           : <Tag color="default">Locked</Tag>,
     },
     {
-      title: 'Comments',
+      title: 'Bình luận',
       dataIndex: 'comments',
       width: 200,
       render: (comments: MonthlyReportRow['comments']) =>
@@ -165,7 +165,7 @@ export const ReportsPage = () => {
           <Space wrap>
             <Select
               allowClear
-              placeholder="Filter by employee"
+              placeholder="Lọc theo nhân viên"
               style={{ width: 220 }}
               value={filterEmployee}
               onChange={(v) => { setFilterEmployee(v); setPage(1); }}
@@ -173,7 +173,7 @@ export const ReportsPage = () => {
             />
             <Select
               allowClear
-              placeholder="Filter by project"
+              placeholder="Lọc theo dự án"
               style={{ width: 220 }}
               value={filterProject}
               onChange={(v) => { setFilterProject(v); setPage(1); }}

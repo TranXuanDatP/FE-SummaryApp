@@ -15,7 +15,7 @@ export const LoginPage = () => {
     try {
       await loginAction(values.email, values.password);
     } catch (err) {
-      setError((err as ApiError).message || 'Login failed. Please check your credentials.');
+      setError((err as ApiError).message || 'Đăng nhập thất bại. Kiểm tra lại thông tin.');
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ export const LoginPage = () => {
             <Input prefix={<MailOutlined />} placeholder="Email" />
           </Form.Item>
           <Form.Item name="password" rules={[{ required: true, message: 'Please enter your password' }]}>
-            <Input.Password prefix={<LockOutlined />} placeholder="Password" />
+            <Input.Password prefix={<LockOutlined />} placeholder="Mật khẩu" />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={loading} block>
