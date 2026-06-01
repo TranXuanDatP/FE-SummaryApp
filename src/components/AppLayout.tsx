@@ -26,6 +26,7 @@ const { Header, Sider, Content } = Layout;
 const allMenuItems = [
   { key: '/', icon: <DashboardOutlined />, label: 'Trang chủ', managerOnly: false },
   { key: '/team', icon: <TeamOutlined />, label: 'Đội ngũ', managerOnly: true },
+  { key: '/users', icon: <UserOutlined />, label: 'Người dùng', managerOnly: true },
   { key: '/projects', icon: <ProjectOutlined />, label: 'Dự án', managerOnly: false },
   { key: '/work-logs', icon: <FileTextOutlined />, label: 'Báo cáo CV', managerOnly: false },
   { key: '/calendar', icon: <CalendarOutlined />, label: 'Lịch', managerOnly: false },

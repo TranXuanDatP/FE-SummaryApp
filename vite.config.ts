@@ -25,6 +25,7 @@ export default defineConfig({
       '/users': 'http://localhost:3000',
       '/projects': 'http://localhost:3000',
       '/work-logs': 'http://localhost:3000',
+      '/sprints': 'http://localhost:3000',
       '/comments': 'http://localhost:3000',
       '/notifications': 'http://localhost:3000',
       '/reports': 'http://localhost:3000',

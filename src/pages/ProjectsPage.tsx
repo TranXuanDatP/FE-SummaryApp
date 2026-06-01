@@ -59,8 +59,9 @@ export const ProjectsPage = () => {
     setSprintsLoading(true);
     try {
       const res = await sprintApi.getSprints(sprintProject.id);
-      setSprints(res as unknown as SprintDto[]);
+      setSprints(Array.isArray(res) ? res : []);
     } catch {
+      setSprints([]);
       message.error('Không thể tải sprint');
     } finally {
       setSprintsLoading(false);
@@ -186,7 +187,7 @@ export const ProjectsPage = () => {
     {
       title: 'Trạng thái', dataIndex: 'status', width: 130,
       render: (status: string, record: SprintDto) => (
-        <Select value={status} size="small" style={{ width: 120 }} onChange={(v) => handleSprintStatusChange(record.id, v)} options={[
+        <Select value={status as SprintDto['status']} size="small" style={{ width: 120 }} onChange={(v: 'planning' | 'in_progress' | 'completed') => handleSprintStatusChange(record.id, v)} options={[
           { value: 'planning', label: <Tag color="default">Kế hoạch</Tag> },
           { value: 'in_progress', label: <Tag color="processing">Đang làm</Tag> },
           { value: 'completed', label: <Tag color="success">Hoàn thành</Tag> },

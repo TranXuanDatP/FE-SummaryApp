@@ -7,7 +7,7 @@ export const getWorkLogs = (params: { page?: number; limit?: number; projectId?:
 export const createWorkLog = (data: { content: string; projectId?: string; sprintId?: string; executionDate?: string; workType?: string }) =>
   client.post<never, WorkLogDto>('/work-logs', data);
 
-export const updateWorkLog = (id: string, data: { content: string }) =>
+export const updateWorkLog = (id: string, data: { content: string; sprintId?: string | null; workType?: string | null }) =>
   client.put<never, WorkLogDto>(`/work-logs/${id}`, data);
 
 export const deleteWorkLog = (id: string) =>

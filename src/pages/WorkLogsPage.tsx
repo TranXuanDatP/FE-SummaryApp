@@ -31,6 +31,10 @@ export const WorkLogsPage = () => {
   const [unlockModal, setUnlockModal] = useState<string | null>(null);
   const [unlockSubmitting, setUnlockSubmitting] = useState(false);
 
+  const [sprintCreateOpen, setSprintCreateOpen] = useState(false);
+  const [sprintCreateLoading, setSprintCreateLoading] = useState(false);
+  const [sprintCreateForm] = Form.useForm();
+
   const [filterProject, setFilterProject] = useState<string | undefined>();
   const [filterDate, setFilterDate] = useState<string | undefined>();
   const [showFilters, setShowFilters] = useState(false);
@@ -67,7 +71,7 @@ export const WorkLogsPage = () => {
   const loadSprints = async (projectId: string) => {
     try {
       const res = await sprintApi.getSprints(projectId);
-      setSprints(res as unknown as SprintDto[]);
+      setSprints(Array.isArray(res) ? res : []);
     } catch { setSprints([]); }
   };
 
@@ -77,15 +81,33 @@ export const WorkLogsPage = () => {
     setSprints([]);
     try {
       const d = await worklogApi.getDefaults() as WorkLogDefaultsDto;
-      form.setFieldsValue({ projectId: d.suggestedProjectId, executionDate: dayjs(d.todayDate) });
-      if (d.suggestedProjectId) await loadSprints(d.suggestedProjectId);
-    } catch { /* ignored */ }
+      if (d) {
+        form.setFieldsValue({
+          projectId: d.suggestedProjectId ?? undefined,
+          executionDate: d.todayDate ? dayjs(d.todayDate) : dayjs(),
+        });
+        if (d.suggestedProjectId) await loadSprints(d.suggestedProjectId);
+      } else {
+        form.setFieldsValue({ executionDate: dayjs() });
+      }
+    } catch {
+      form.setFieldsValue({ executionDate: dayjs() });
+    }
     setModalOpen(true);
   };
 
-  const openEdit = (record: WorkLogDto) => {
+  const openEdit = async (record: WorkLogDto) => {
     setEditItem(record);
-    form.setFieldsValue({ content: record.content });
+    setSprints([]);
+    form.setFieldsValue({
+      content: record.content,
+      sprintId: record.sprintId ?? undefined,
+      executionDate: record.executionDate ? dayjs(record.executionDate) : undefined,
+      workType: record.workType ?? undefined,
+    });
+    if (record.projectId) {
+      await loadSprints(record.projectId);
+    }
     setModalOpen(true);
   };
 
@@ -93,7 +115,11 @@ export const WorkLogsPage = () => {
     setSubmitting(true);
     try {
       if (editItem) {
-        await worklogApi.updateWorkLog(editItem.id, { content: values.content });
+        await worklogApi.updateWorkLog(editItem.id, {
+          content: values.content,
+          ...(values.sprintId !== undefined ? { sprintId: values.sprintId || null } : {}),
+          ...(values.workType !== undefined ? { workType: values.workType || null } : {}),
+        });
         message.success('Đã cập nhật báo cáo CV');
       } else {
         const payload = {
@@ -324,51 +350,103 @@ export const WorkLogsPage = () => {
             <Input.TextArea rows={5} placeholder="What did you work on?" showCount maxLength={5000} />
           </Form.Item>
           {!editItem && (
-            <>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="projectId" label="Dự án">
-                    <Select
-                      allowClear
-                      placeholder="Select project"
-                      onChange={async (value: string | undefined) => {
-                        form.setFieldsValue({ sprintId: undefined });
-                        if (value) { await loadSprints(value); } else { setSprints([]); }
-                      }}
-                    >
-                      {projects.map((p) => (<Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="executionDate" label="Date">
-                    <DatePicker style={{ width: '100%' }} disabledDate={(d) => d && d.isAfter(dayjs(), 'day')} />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="sprintId" label="Sprint / Module">
-                    <Select allowClear placeholder="Chọn sprint" disabled={sprints.length === 0}>
-                      {sprints.map((s) => (<Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="workType" label="Loại công việc">
-                    <Select allowClear placeholder="Chọn loại">
-                      <Select.Option value="code">💻 Code</Select.Option>
-                      <Select.Option value="bug_fix">🐛 Fix Bug</Select.Option>
-                      <Select.Option value="research">🔬 R&D</Select.Option>
-                      <Select.Option value="meeting">📅 Meeting</Select.Option>
-                      <Select.Option value="review">👀 Review</Select.Option>
-                      <Select.Option value="other">📋 Other</Select.Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </Row>
-            </>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="projectId" label="Dự án">
+                  <Select
+                    allowClear
+                    placeholder="Select project"
+                    onChange={async (value: string | undefined) => {
+                      form.setFieldsValue({ sprintId: undefined });
+                      if (value) { await loadSprints(value); } else { setSprints([]); }
+                    }}
+                  >
+                    {projects.map((p) => (<Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="executionDate" label="Date">
+                  <DatePicker style={{ width: '100%' }} disabledDate={(d) => d && d.isAfter(dayjs(), 'day')} />
+                </Form.Item>
+              </Col>
+            </Row>
           )}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="sprintId" label="Sprint / Module">
+                <Space.Compact style={{ width: '100%' }}>
+                  <Select
+                    allowClear
+                    placeholder={editItem ? 'Chọn sprint' : (sprints.length === 0 ? 'Chọn dự án trước' : 'Chọn sprint')}
+                    disabled={!editItem && sprints.length === 0}
+                    style={{ width: 'calc(100% - 40px)' }}
+                    onChange={(val) => form.setFieldsValue({ sprintId: val })}
+                  >
+                    {sprints.map((s) => (<Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>))}
+                  </Select>
+                  <Button
+                    icon={<PlusOutlined />}
+                    disabled={!editItem && !form.getFieldValue('projectId')}
+                    onClick={() => { sprintCreateForm.resetFields(); setSprintCreateOpen(true); }}
+                    title="Tạo sprint mới"
+                  />
+                </Space.Compact>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="workType" label="Loại công việc">
+                <Select allowClear placeholder="Chọn loại">
+                  <Select.Option value="code">💻 Code</Select.Option>
+                  <Select.Option value="bug_fix">🐛 Fix Bug</Select.Option>
+                  <Select.Option value="research">🔬 R&D</Select.Option>
+                  <Select.Option value="meeting">📅 Meeting</Select.Option>
+                  <Select.Option value="review">👀 Review</Select.Option>
+                  <Select.Option value="other">📋 Other</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+
+      {/* Inline Sprint Create Modal */}
+      <Modal
+        title="Tạo Sprint mới"
+        open={sprintCreateOpen}
+        confirmLoading={sprintCreateLoading}
+        onCancel={() => { setSprintCreateOpen(false); sprintCreateForm.resetFields(); }}
+        onOk={() => sprintCreateForm.submit()}
+        okText="Tạo"
+        width={420}
+      >
+        <Form form={sprintCreateForm} layout="vertical" onFinish={async (vals: { name: string; description?: string }) => {
+          const projectId = editItem?.projectId || form.getFieldValue('projectId');
+          if (!projectId) { message.error('Chọn dự án trước'); return; }
+          setSprintCreateLoading(true);
+          try {
+            const newSprint = await sprintApi.createSprint(projectId, { name: vals.name, description: vals.description });
+            const list = Array.isArray(await sprintApi.getSprints(projectId)) ? await sprintApi.getSprints(projectId) : sprints;
+            setSprints(Array.isArray(list) ? list : [...sprints, newSprint]);
+            form.setFieldsValue({ sprintId: newSprint.id });
+            message.success(`Đã tạo sprint "${newSprint.name}"`);
+            setSprintCreateOpen(false);
+            sprintCreateForm.resetFields();
+          } catch (err) {
+            message.error((err as ApiError).message || 'Tạo sprint thất bại');
+          } finally {
+            setSprintCreateLoading(false);
+          }
+        }}>
+          <Form.Item name="name" label="Tên Sprint" rules={[
+            { required: true, message: 'Tên sprint là bắt buộc' },
+            { max: 200, message: 'Tối đa 200 ký tự' },
+          ]}>
+            <Input placeholder="VD: Sprint 1" />
+          </Form.Item>
+          <Form.Item name="description" label="Mô tả" rules={[{ max: 1000 }]}>
+            <Input.TextArea rows={2} placeholder="Mô tả tùy chọn" />
+          </Form.Item>
         </Form>
       </Modal>
 

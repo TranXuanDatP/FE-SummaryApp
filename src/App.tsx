@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AppLayout } from './components/AppLayout';
 import { PrivateRoute } from './components/PrivateRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginPage } from './pages/LoginPage';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
@@ -56,7 +57,9 @@ function ThemedApp() {
 function App() {
   return (
     <ThemeProvider>
-      <ThemedApp />
+      <ErrorBoundary>
+        <ThemedApp />
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }
